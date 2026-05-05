@@ -2,9 +2,13 @@
 
 ![Ash Bot](images/ash-bot-image.png)
 
-A self-hosted Discord AI botwith a real personality, long-term memory, and tool-calling capabilities — powered by [Ollama](https://ollama.com) running locally on your machine.
+A self-hosted Discord AI bot with a real personality, long-term memory, and tool-calling capabilities — powered by [Ollama](https://ollama.com) running locally on your machine.
 
 > Built on .NET 10 / C# + Discord.Net. No cloud AI APIs required.
+
+> *"The difficult we do immediately. The impossible takes a little longer."*
+
+> *"Those who say it cannot be done should not interrupt the person doing it."* — George Bernard Shaw
 
 ---
 
@@ -173,3 +177,7 @@ ash-bot/
 ## License
 
 MIT
+
+---
+
+*Built by someone who does the things people say can't be done — on hardware that wasn't supposed to do it.*
