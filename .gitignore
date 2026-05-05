@@ -1,0 +1,17 @@
+# Build output
+bin/
+obj/
+
+# Runtime-generated data (never commit these — they contain personal info)
+appsettings.json
+memories.json
+ash_codex.db
+ash-run.log
+ash-workspace/
+
+# Use appsettings.example.json as the template instead
+# Copy it to appsettings.json and fill in your values
+
+# OS
+.DS_Store
+Thumbs.db
