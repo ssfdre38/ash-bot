@@ -1,6 +1,8 @@
 # 🔥 Ash Bot
 
-A self-hosted Discord AI bot with a real personality, long-term memory, and tool-calling capabilities — powered by [Ollama](https://ollama.com) running locally on your machine.
+![Ash Bot](images/ash-bot-image.png)
+
+A self-hosted Discord AI botwith a real personality, long-term memory, and tool-calling capabilities — powered by [Ollama](https://ollama.com) running locally on your machine.
 
 > Built on .NET 10 / C# + Discord.Net. No cloud AI APIs required.
 
