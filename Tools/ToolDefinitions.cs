@@ -57,6 +57,12 @@ public static class ToolDefinitions
         T("send_embed", "Send a rich formatted Discord embed",
             Obj(P("title","string","Embed title"), P("description","string","Embed body"), P("color","integer","Color integer")),
             ["title","description"]),
+        T("create_thread", "Create a public thread in the current channel, optionally anchored to a specific message. Returns the thread channel ID.",
+            Obj(P("name","string","Thread name (2–100 chars)"), P("message_id","string","Optional message ID to anchor the thread to")),
+            ["name"]),
+        T("read_thread_history", "Read recent messages from a thread by its channel ID.",
+            Obj(P("thread_id","string","Thread channel ID"), P("limit","integer","Number of messages to fetch (default 20, max 50)")),
+            ["thread_id"]),
     ];
 
     private static JsonObject T(string name, string desc, JsonObject properties, string[] required) =>

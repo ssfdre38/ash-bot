@@ -42,12 +42,15 @@ public class MessageHandler
         if (msg.Author.Id == _client.CurrentUser.Id) return;
 
         var isDm = msg.Channel is IDMChannel;
-        if (!isDm && msg.Channel.Id != _cfg.ChannelId) return;
+        var isThread = msg.Channel is SocketThreadChannel;
+        ulong? threadParentId = isThread ? (msg.Channel as SocketThreadChannel)?.ParentChannel?.Id : null;
+
+        if (!isDm && msg.Channel.Id != _cfg.ChannelId && threadParentId != _cfg.ChannelId) return;
 
         if (isDm) _log.LogInformation("[DM] Private message from {User}", msg.Author.Username);
 
         _state.StartThought(msg.Id, msg.Channel.Id, msg.Author.Username,
-            isDm ? "[DM]" : msg.Content);
+            isDm ? "[DM]" : isThread ? $"[Thread:{msg.Channel.Name}]" : msg.Content);
 
         using (msg.Channel.EnterTypingState())
         {
@@ -57,7 +60,7 @@ public class MessageHandler
                 // Track user in memory
                 _memory.UpdateOrAddPerson(msg.Author.Id.ToString(), msg.Author.Username);
 
-                var sysPrompt = BuildSystemPrompt(msg, isDm);
+                var sysPrompt = BuildSystemPrompt(msg, isDm, isThread);
                 var history = GetHistory(msg.Channel.Id);
 
                 var displayName = (msg.Author as SocketGuildUser)?.DisplayName ?? msg.Author.Username;
@@ -96,10 +99,10 @@ public class MessageHandler
                 foreach (var block in blocks)
                 {
                     if (block.Length <= 2000)
-                        await msg.Channel.SendMessageAsync(block);
+                        await SendWithRetryAsync(msg.Channel, block);
                     else
                         for (int i = 0; i < block.Length; i += 2000)
-                            await msg.Channel.SendMessageAsync(block[i..Math.Min(i + 2000, block.Length)]);
+                            await SendWithRetryAsync(msg.Channel, block[i..Math.Min(i + 2000, block.Length)]);
                     await Task.Delay(800);
                 }
 
@@ -115,14 +118,36 @@ public class MessageHandler
             catch (Exception ex)
             {
                 _log.LogError(ex, "Error handling message");
-                await msg.Channel.SendMessageAsync("🔥 Error processing.");
+                try { await SendWithRetryAsync(msg.Channel, "🔥 Something went wrong, give me a sec."); } catch { }
                 _state.FinishThought();
                 if (Bot is not null) await Bot.SetIdleStatusAsync();
             }
         }
     }
 
-    private string BuildSystemPrompt(SocketUserMessage msg, bool isDm)
+    private async Task SendWithRetryAsync(IMessageChannel channel, string text, int maxRetries = 3)
+    {
+        for (int attempt = 0; attempt < maxRetries; attempt++)
+        {
+            try
+            {
+                await channel.SendMessageAsync(text);
+                return;
+            }
+            catch (Discord.Net.HttpException ex) when ((int)ex.HttpCode == 503 || (int)ex.HttpCode == 502)
+            {
+                if (attempt < maxRetries - 1)
+                {
+                    _log.LogWarning("Discord {Code} on send, retrying in {Delay}ms (attempt {A}/{M})",
+                        (int)ex.HttpCode, 2000 * (attempt + 1), attempt + 1, maxRetries);
+                    await Task.Delay(2000 * (attempt + 1));
+                }
+                else throw;
+            }
+        }
+    }
+
+    private string BuildSystemPrompt(SocketUserMessage msg, bool isDm, bool isThread = false)
     {
         var personality = _personality.CheckAndReload();
         var memorySummary = _memory.GetSummary();
@@ -151,6 +176,15 @@ public class MessageHandler
             sb.AppendLine("- This is a private conversation. Treat it with full confidentiality.");
             sb.AppendLine("- Never reference or hint at DM content in public channels.");
             sb.AppendLine("- Do not log or summarize this conversation unless explicitly asked.");
+        }
+
+        if (isThread)
+        {
+            var threadName = msg.Channel.Name;
+            sb.AppendLine($"\n[THREAD MODE — #{threadName}]");
+            sb.AppendLine("- You are inside a Discord thread. Keep responses focused on the thread topic.");
+            sb.AppendLine("- You can use create_thread to spin off sub-topics into new threads.");
+            sb.AppendLine("- You can use read_thread_history to recall earlier parts of this thread.");
         }
 
         return sb.ToString();

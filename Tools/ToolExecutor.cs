@@ -81,6 +81,51 @@ public class ToolExecutor
                     return new { success = true };
                 }
 
+                case "create_thread":
+                {
+                    if (channel is null) return new { error = "No channel" };
+                    if (channel is not ITextChannel textCh)
+                        return new { error = "Threads can only be created in text channels, not in a thread or DM." };
+
+                    var threadName = Str("name");
+                    if (string.IsNullOrWhiteSpace(threadName) || threadName.Length > 100)
+                        return new { error = "Thread name must be 2–100 characters." };
+
+                    IMessage? anchorMsg = null;
+                    var midStr = Str("message_id");
+                    if (!string.IsNullOrEmpty(midStr) && ulong.TryParse(midStr, out var anchorId))
+                        anchorMsg = await channel.GetMessageAsync(anchorId);
+
+                    var created = await textCh.CreateThreadAsync(
+                        threadName,
+                        ThreadType.PublicThread,
+                        ThreadArchiveDuration.OneDay,
+                        anchorMsg);
+
+                    _log.LogInformation("🧵 Thread created: #{Name} ({Id})", created.Name, created.Id);
+                    return new { success = true, thread_id = created.Id.ToString(), thread_name = created.Name };
+                }
+
+                case "read_thread_history":
+                {
+                    var tidStr = Str("thread_id");
+                    if (!ulong.TryParse(tidStr, out var tid))
+                        return new { error = $"Invalid thread_id '{tidStr}'" };
+
+                    var threadCh = _discord.GetChannel(tid) as IMessageChannel;
+                    if (threadCh is null)
+                        return new { error = $"Thread {tid} not found or not accessible." };
+
+                    var limit = Math.Min(Int("limit", 20), 50);
+                    var msgs = new List<object>();
+                    await foreach (var page in threadCh.GetMessagesAsync(limit))
+                        foreach (var m in page)
+                            msgs.Add(new { author = m.Author.Username, content = m.Content, timestamp = m.Timestamp.ToString("o") });
+
+                    msgs.Reverse(); // oldest first
+                    return new { thread_id = tidStr, message_count = msgs.Count, messages = msgs };
+                }
+
                 case "send_autonomous_message":
                 {
                     var cid = channel?.Id ?? _cfg.ChannelId;
